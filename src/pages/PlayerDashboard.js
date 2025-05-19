@@ -1,176 +1,174 @@
-import React, { useState, useEffect } from 'react';
-import Navbar from '../components/Navbar';
+// import React from 'react';
+// import { usePlayer } from '../context/PlayerContext';
+// import Navbar from '../components/Navbar';
+// import { TimerDisplay } from '../components/TimerDisplay';
+// import { useCountdownTimer } from '../components/useCountdownTimer';
+// import { useNumberSelection } from '../components/useNumberSelection';
+// import { SearchBar } from '../components/SearchBar';
+// import { NumberGrid } from '../components/NumberGrid';
+// import { ConfirmationPopup } from '../components/ConfirmationPopup';
+
+// function PlayerDashboard() {
+//   const { timeLeft, isRunning } = useCountdownTimer();
+//   const { player, updatePlayer } = usePlayer();
+//   const {
+//     checkedValue,
+//     isPopupOpen,
+//     searchQuery,
+//     filteredNumbers,
+//     setSearchQuery,
+//     handleNumberClick,
+//     setIsPopupOpen,
+//     resetSelection,
+//   } = useNumberSelection();
+
+//   const handleSubmit = async () => {
+//     if (!checkedValue) return;
+
+//     const playerData = {
+//       email: player.email,
+//       number: checkedValue,
+//     };
+
+//     try {
+//       const response = await fetch('http://localhost:5000/player-register', {
+//         method: 'POST',
+//         headers: {
+//           'Content-Type': 'application/json',
+//         },
+//         body: JSON.stringify(playerData),
+//       });
+
+//       const data = await response.json();
+//       if (response.ok) {
+//         console.log('Player number updated:', data.message);
+//         updatePlayer({ luckyNumber: checkedValue });
+//         setIsPopupOpen(false); // Close popup but keep selection
+//       } else {
+//         console.error('Error:', data.message);
+//         resetSelection(); // Reset on error
+//       }
+//     } catch (error) {
+//       console.error('Request failed:', error);
+//       resetSelection(); // Reset on error
+//     }
+//   };
+
+//   return (
+//     <div className="min-h-screen bg-gradient-to-br from-purple-600 to-blue-500">
+//       <Navbar />
+
+//       <div className="max-w-4xl mx-auto">
+//         <div className="bg-white/10 backdrop-blur-md rounded-xl p-8 border border-white/20 mt-28">
+//           <h1 className="text-3xl font-bold text-white">Player Dashboard</h1>
+//           <TimerDisplay timeLeft={timeLeft} />
+//           {checkedValue && isRunning && (
+//             <div className="mt-4 text-center text-white">
+//               <p className="text-lg">Your selected number: <span className="font-bold">{checkedValue}</span></p>
+//             </div>
+//           )}
+//         </div>
+//       </div>
+
+//       {isRunning && (
+//         <>
+//           <SearchBar 
+//             searchQuery={searchQuery}
+//             onSearchChange={setSearchQuery}
+//           />
+
+//           <NumberGrid
+//             filteredNumbers={filteredNumbers}
+//             checkedValue={checkedValue}
+//             onNumberClick={handleNumberClick}
+//             isRunning={isRunning}
+//           />
+
+//           {checkedValue && isPopupOpen && (
+//             <ConfirmationPopup
+//               selectedNumber={checkedValue}
+//               onSubmit={handleSubmit}
+//               onClose={() => setIsPopupOpen(false)}
+//             />
+//           )}
+//         </>
+//       )}
+//     </div>
+//   );
+// }
+
+// export default PlayerDashboard;
+
+// PlayerDashboard.js
+import React, { useEffect } from 'react';
 import { usePlayer } from '../context/PlayerContext';
-import io from 'socket.io-client';
+import Navbar from '../components/Navbar';
+import { TimerDisplay } from '../components/TimerDisplay';
+import { useCountdownTimer } from '../components/useCountdownTimer';
+import { useNumberSelection } from '../components/useNumberSelection';
+import { SearchBar } from '../components/SearchBar';
+import { NumberGrid } from '../components/NumberGrid';
+import { ConfirmationPopup } from '../components/ConfirmationPopup';
 
-const socket = io('http://localhost:5000');
-
-const PlayerDashboard = () => {
-  const { player } = usePlayer();
-  const [searchQuery, setSearchQuery] = useState('');
-  const [warning, setWarning] = useState('');
-  const [isValid, setIsValid] = useState(false);
-  const [isConfirmed, setIsConfirmed] = useState(false);
-  const [confirmationMessage, setConfirmationMessage] = useState('');
-  const [isClicked, setIsClicked] = useState(false);
-  const [timer, setTimer] = useState('');
+function PlayerDashboard() {
+  const { timeLeft, isRunning, resetTimer } = useCountdownTimer();
+  const { player, updatePlayer } = usePlayer();
+  const {
+    selectedNumbers,
+    tempSelectedNumber,
+    isPopupOpen,
+    searchQuery,
+    filteredNumbers,
+    setSearchQuery,
+    handleNumberClick,
+    setIsPopupOpen,
+    resetSelection,
+    handleConfirm,
+    resetAllSelections,
+  } = useNumberSelection();
 
   useEffect(() => {
-    socket.on('timerStart', ({ endTime }) => {
-      const updateTimer = () => {
-        const now = Date.now();
-        const remainingTime = Math.max(0, endTime - now);
-        
-        if (remainingTime > 0) {
-          setTimer(formatTime(remainingTime));
-          requestAnimationFrame(updateTimer);
-        } else {
-          setTimer('Show Ended');
-        }
-      };
-
-      updateTimer();
-    });
-
-    return () => {
-      socket.off('timerStart');
-    };
-  }, []);
-
-  const formatTime = (milliseconds) => {
-    const totalSeconds = Math.floor(milliseconds / 1000);
-    const hours = Math.floor(totalSeconds / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    const seconds = totalSeconds % 60;
-
-    return `${hours.toString().padStart(2, '0')}:${minutes
-      .toString()
-      .padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-  };
-
-  const handleInputChange = (e) => {
-    const value = e.target.value;
-    setSearchQuery(value);
-
-    if (/^\d{4}$/.test(value)) {
-      setIsValid(true);
-      setWarning('');
-    } else if (value !== '') {
-      setIsValid(false);
-      setWarning('Please enter a valid 4-digit number (0000 to 9999)');
-    } else {
-      setIsValid(false);
-      setWarning('');
+    if (timeLeft === 0) {
+      resetAllSelections(); // Reset all selections when the timer ends
     }
-  };
-
-  const handleButtonClick = async () => {
-    try {
-      setIsClicked(true);
-      const chosenNumber = searchQuery;
-
-      if (!chosenNumber) {
-        throw new Error('Chosen number is missing. Please check your input.');
-      }
-
-      const takenNumbers = JSON.parse(localStorage.getItem('takenNumbers')) || [];
-      if (takenNumbers.includes(chosenNumber)) {
-        setWarning('This number has already been taken.');
-        return;
-      }
-
-      const response = await fetch('/player', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: player.email,
-          chosenNumber,
-        }),
-      });
-
-      const data = await response.json();
-      if (data.success) {
-        setIsConfirmed(true);
-        setConfirmationMessage('Your number has been confirmed and saved!');
-
-        localStorage.setItem(
-          'chosenNumberData',
-          JSON.stringify({
-            chosenNumber,
-            timestamp: Date.now(),
-          })
-        );
-
-        takenNumbers.push(chosenNumber);
-        localStorage.setItem('takenNumbers', JSON.stringify(takenNumbers));
-      } else {
-        setWarning(data.message || 'Failed to confirm your number. Please try again.');
-      }
-    } catch (error) {
-      console.error('Error confirming number:', error.message || error);
-      setWarning('Failed to confirm your number. Please try again.');
-    }
-  };
+  }, [timeLeft, resetAllSelections]);
 
   return (
-    <div className="bg-gray-100 min-h-screen">
+    <div className="min-h-screen bg-gradient-to-br from-purple-600 to-blue-500">
       <Navbar />
-      <div className="container mx-auto p-6">
-        <h2 className="text-2xl font-bold text-red-600 mt-4">Player Dashboard</h2>
-        <div className="mt-20">
-          <h1>Welcome, {player.name}</h1>
 
-          {/* Timer Display */}
-          <div className="text-center text-2xl font-bold text-red-600 mt-4">
-            {timer ? `Time Remaining: ${timer}` : 'No Show Running'}
-          </div>
-
-          <input
-            type="text"
-            className="border p-2 w-full mb-4 text-center rounded-lg mt-8"
-            placeholder="Search for available numbers"
-            value={searchQuery}
-            onChange={handleInputChange}
-          />
-
-          <div className="text-center mt-32">
-            <p className="text-4xl font-bold">
-              Your <span className="text-red-600">LUCKY</span> number Awaits
-            </p>
-            <p className="text-2xl font-semibold mt-4">
-              Dream big, <span className="text-red-600">WIN</span> big
-            </p>
-          </div>
-
-          {warning && <p className="text-red-600 text-center mt-4">{warning}</p>}
-
-          {isValid && (
-            <div className="mt-8 text-center">
-              <button
-                className={`inline-block p-4 text-xl font-bold rounded-lg focus:outline-none border ${
-                  isConfirmed
-                    ? 'bg-green-600 text-white border-black cursor-not-allowed'
-                    : 'bg-white text-black border-black cursor-pointer'
-                }`}
-                onClick={handleButtonClick}
-                disabled={isConfirmed || isClicked}
-              >
-                {searchQuery}
-              </button>
+      <div className="max-w-4xl mx-auto">
+        <div className="bg-white/10 backdrop-blur-md rounded-xl p-8 border border-white/20 mt-28">
+          <h1 className="text-3xl font-bold text-white">Player Dashboard</h1>
+          <TimerDisplay timeLeft={timeLeft} />
+          {tempSelectedNumber && isRunning && (
+            <div className="mt-4 text-center text-white">
+              <p className="text-lg">Your selected number: <span className="font-bold">{tempSelectedNumber}</span></p>
             </div>
-          )}
-
-          {confirmationMessage && (
-            <p className="text-green-600 mt-4 text-center">{confirmationMessage}</p>
           )}
         </div>
       </div>
+
+      {isRunning && (
+        <>
+          <SearchBar searchQuery={searchQuery} onSearchChange={setSearchQuery} />
+          <NumberGrid
+            filteredNumbers={filteredNumbers}
+            checkedValue={selectedNumbers}
+            onNumberClick={handleNumberClick}
+            isRunning={isRunning}
+          />
+          {tempSelectedNumber && isPopupOpen && (
+            <ConfirmationPopup
+              selectedNumber={tempSelectedNumber}
+              onSubmit={handleConfirm}
+              onClose={() => setIsPopupOpen(false)}
+            />
+          )}
+        </>
+      )}
     </div>
   );
-};
+}
 
 export default PlayerDashboard;
-
-
-
-
